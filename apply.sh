@@ -37,14 +37,6 @@ apply_zram() {
 
 apply_tcp() { write /proc/sys/net/ipv4/tcp_congestion_control "${TCP_CONG:-westwood}"; }
 
-apply_gov() {
-  [ -f "$CONF" ] || return
-  grep '^GOV_' "$CONF" | while IFS='=' read -r k v; do
-    pol=$(echo "$k" | sed 's/^GOV_//' | tr 'A-Z' 'a-z')
-    write "/sys/devices/system/cpu/cpufreq/$pol/scaling_governor" "$v"
-  done
-}
-
 set_tcp() {
   grep -v '^TCP_CONG=' "$CONF" 2>/dev/null > "$CONF.tmp"
   echo "TCP_CONG=$1" >> "$CONF.tmp"
@@ -52,29 +44,33 @@ set_tcp() {
   write /proc/sys/net/ipv4/tcp_congestion_control "$1"
 }
 
-set_gov() {
-  key="GOV_$(echo "$1" | tr 'a-z' 'A-Z')"
-  grep -v "^${key}=" "$CONF" 2>/dev/null > "$CONF.tmp"
-  echo "${key}=$2" >> "$CONF.tmp"
-  mv "$CONF.tmp" "$CONF"
-  write "/sys/devices/system/cpu/cpufreq/$1/scaling_governor" "$2"
-}
-
+# note: "applied" just means live values match what boot() would have written;
+# good enough signal for the UI, no need for a real diff engine.
 status() {
+  local swap vfs wsf tcp_cur applied=1
+  swap=$(cat /proc/sys/vm/swappiness 2>/dev/null)
+  vfs=$(cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null)
+  wsf=$(cat /proc/sys/vm/watermark_scale_factor 2>/dev/null)
+  tcp_cur=$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)
+
+  [ "$swap" = "100" ] || applied=0
+  [ "$vfs" = "100" ] || applied=0
+  [ "$wsf" = "30" ] || applied=0
+  [ "$tcp_cur" = "${TCP_CONG:-westwood}" ] || applied=0
+
   echo "ram_mb=$(($(awk '/MemTotal/{print $2}' /proc/meminfo) / 1024))"
   echo "zram_disksize_mb=$(($(cat /sys/block/zram0/disksize 2>/dev/null || echo 0) / 1024 / 1024))"
-  echo "tcp_current=$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)"
+  echo "swappiness=$swap"
+  echo "vfs_cache_pressure=$vfs"
+  echo "watermark_scale_factor=$wsf"
+  echo "tcp_current=$tcp_cur"
   echo "tcp_available=$(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)"
-  for p in /sys/devices/system/cpu/cpufreq/policy*; do
-    id=$(basename "$p")
-    echo "gov_${id}_current=$(cat "$p/scaling_governor" 2>/dev/null)"
-    echo "gov_${id}_available=$(cat "$p/scaling_available_governors" 2>/dev/null)"
-  done
+  echo "tcp_wanted=${TCP_CONG:-westwood}"
+  echo "guard_applied=$applied"
 }
 
 case "$1" in
-  boot)   apply_defaults; apply_zram; apply_tcp; apply_gov ;;
+  boot)   apply_defaults; apply_zram; apply_tcp ;;
   tcp)    set_tcp "$2" ;;
-  gov)    set_gov "$2" "$3" ;;
   status) status ;;
 esac

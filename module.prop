@@ -1,6 +1,6 @@
-id=seiran_sysctl_guard
-name=Seiran Sysctl Guard
-version=v0.0.2
-versionCode=20260706
-author=superuseryu
-description=Re-applies vm.* sysctl + zram sizing post-boot that ROM init.rc/vendor perf-hal silently override. WebUI: pick TCP congestion control, check RAM/ZRAM, see whether guard defaults are actually applied. No governor forcing.
+id=seiran_toolkit
+name=Seiran Toolkit
+version=v0.0.3
+versionCode=20260708
+author=yu
+description=Compact device tuning settings persist across reboot.

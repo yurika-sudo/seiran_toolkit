@@ -2,5 +2,5 @@ id=seiran_toolkit
 name=Seiran Toolkit
 version=v0.0.3
 versionCode=20260708
-author=yu
+author=superuseryu
 description=Compact device tuning settings persist across reboot.
